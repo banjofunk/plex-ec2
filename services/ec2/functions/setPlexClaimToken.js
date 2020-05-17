@@ -32,7 +32,7 @@ module.exports.handler = async (event, context) => {
       CloudWatchOutputEnabled: true,
     },
     Comment: 'set plex claim token and start plex media server',
-    InstanceIds: [process.env.plexEc2Id],
+    InstanceIds: [process.env.PlexEc2InstanceId],
     Parameters: {
       commands: [
         'cd /home/ec2-user',

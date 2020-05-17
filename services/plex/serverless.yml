@@ -1,0 +1,38 @@
+service: plex-ec2-services-plex
+provider:
+  name: aws
+  runtime: python3.7
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - ssm:GetParametersByPath
+      Resource: 
+        - arn:aws:ssm:us-west-2:285012317380:parameter/plex-ec2/
+  apiGateway:
+    restApiId: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiId
+    restApiRootResourceId: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiResourceId
+  environment:
+    stage: ${self:provider.stage}
+    plexIp: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexIp
+    apiBaseUrl: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiBaseUrl
+custom:
+  pythonRequirements:
+    dockerizePip: true
+plugins:
+  - serverless-pseudo-parameters
+  - serverless-python-requirements
+functions:
+  associateClaimToken:
+    handler: functions/associate_claim_token.handler
+    runtime: python3.7
+    timeout: 180
+    events:
+      - http:
+          path: associate-claim-token
+          method: get

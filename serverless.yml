@@ -1,58 +1,16 @@
-service: aws-nodejs
+service: plex-ec2-resources
 provider:
   name: aws
   runtime: nodejs12.x
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-west-2'}
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - ssm:SendCommand
-      Resource: 
-        - arn:aws:ec2:#{AWS::Region}:#{AWS::AccountId}:instance/*
-        - arn:aws:ssm:us-west-2::document/AWS-RunShellScript
-    - Effect: Allow
-      Action:
-        - ssm:GetParametersByPath
-      Resource: 
-        - arn:aws:ssm:us-west-2:285012317380:parameter/plex-ec2/
-  apiGateway:
-    restApiId: "#{PlexRestApi}"
-    restApiRootResourceId: "#{PlexRestApi.RootResourceId}" 
-  environment:
-    stage: ${self:provider.stage}
-    plexEc2Id: ${self:resources.Outputs.PlexEc2Id.Value}
-    plexIp: "#{PlexEc2.PublicIp}"
-    apiBaseUrl: 'https://#{PlexRestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}'
 custom:
-  pythonRequirements:
-    dockerizePip: true
   availabilityZone:
     Fn::Select: 
       - 0
       - Fn::GetAZs: ${self:provider.region}
 plugins:
   - serverless-pseudo-parameters
-  - serverless-python-requirements
-package:
-  individually: true
-functions:
-  searchTorrent:
-    handler: functions/searchTorrent.handler
-  setPlexClaimToken:
-    handler: functions/setPlexClaimToken.handler
-    events:
-      - http:
-          path: set-plex-claim-token
-          method: get
-  associateClaimToken:
-    handler: functions/python/associate_claim_token.handler
-    runtime: python3.7
-    timeout: 180
-    events:
-      - http:
-          path: associate-claim-token
-          method: get
 resources:
   Conditions:
     CreateResources: 
@@ -422,7 +380,6 @@ resources:
               sysvinit: 
                 docker: 
                   enabled: true
-
     PlexInternetGateway:
       Type: AWS::EC2::InternetGateway
       Properties:
@@ -470,19 +427,36 @@ resources:
         RouteTableId: 
           Ref: RouteTable
   Outputs:
+    PlexApiBaseUrl:
+      Description: Plex Ec2 - base url for api gateway
+      Value: 'https://#{PlexRestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}'
+      Export:
+        Name: "#{AWS::StackName}-PlexApiBaseUrl"
     PlexApiResourceId:
+      Description: Plex Ec2 - api gateway resource id
       Value:
-        "Fn::GetAtt": 
+        Fn::GetAtt: 
           - PlexRestApi
           - RootResourceId
+      Export:
+        Name: "#{AWS::StackName}-PlexApiResourceId"
     PlexApiId:
+      Description: Plex Ec2 - api gateway rest api id
       Value:
         Ref: PlexRestApi
-    PlexEc2Id:
+      Export:
+        Name: "#{AWS::StackName}-PlexApiId"
+    PlexEc2InstanceId:
+      Description: Plex Ec2 - ec2 instance id
       Value:
         Ref: PlexEc2
+      Export:
+        Name: "#{AWS::StackName}-PlexEc2InstanceId"
     PlexIp:
+      Description: Plex Ec2 - ec2 internet gateway public ip
       Value: 
         Fn::GetAtt:
           - PlexEc2
           - PublicIp
+      Export:
+        Name: "#{AWS::StackName}-PlexIp"

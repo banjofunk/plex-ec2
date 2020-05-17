@@ -11,7 +11,7 @@ from plexapi.exceptions import NotFound
 ssm = boto3.client('ssm')
 
 
-def handler():
+def handler(event, context):
     """Associate MyPlex user with claim token on plex ec2"""
     ssm_response = ssm.get_parameters_by_path(
         Path='/plex-ec2/',

@@ -7,10 +7,7 @@
     "set-password": "f(){ aws ssm put-parameter --name /plex-ec2/password --type SecureString --overwrite --value $1 | cat; };f",
     "set-username": "f(){ aws ssm put-parameter --name /plex-ec2/username --type String --overwrite --value $1 | cat; };f"
   },
-  "dependencies": {
-    "node-fetch": "^2.6.0",
-    "xtorrent": "^1.0.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "babel-eslint": "^10.0.3",
     "eslint": "^6.8.0",
@@ -24,7 +21,6 @@
     "eslint-plugin-react": "^7.18.3",
     "eslint-plugin-react-hooks": "^2.4.0",
     "prettier": "^1.19.1",
-    "serverless-pseudo-parameters": "^2.5.0",
-    "serverless-python-requirements": "^5.1.0"
+    "serverless-pseudo-parameters": "^2.5.0"
   }
 }

@@ -1,0 +1,13 @@
+{
+  "name": "plex-ec2-ec2-service",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.0",
+    "xtorrent": "^1.0.0"
+  },
+  "devDependencies": {
+    "serverless-pseudo-parameters": "^2.5.0"
+  }
+}

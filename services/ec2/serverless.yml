@@ -1,0 +1,54 @@
+service: plex-ec2-services-ec2
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - ssm:SendCommand
+      Resource: 
+        - arn:aws:ec2:#{AWS::Region}:#{AWS::AccountId}:instance/*
+        - arn:aws:ssm:us-west-2::document/AWS-RunShellScript
+    - Effect: Allow
+      Action:
+        - ssm:GetParametersByPath
+      Resource: 
+        - arn:aws:ssm:us-west-2:285012317380:parameter/plex-ec2/
+  apiGateway:
+    restApiId: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiId
+    restApiRootResourceId: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiResourceId
+  environment:
+    stage: ${self:provider.stage}
+    plexIp: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexIp
+    apiBaseUrl: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiBaseUrl
+    PlexEc2InstanceId: 
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexEc2InstanceId
+plugins:
+  - serverless-pseudo-parameters
+functions:
+  searchTorrent:
+    handler: functions/searchTorrent.handler
+  setPlexClaimToken:
+    handler: functions/setPlexClaimToken.handler
+    events:
+      - http:
+          path: set-plex-claim-token
+          method: get
+resources:
+  Conditions:
+    CreateResources: 
+      Fn::Equals:
+        - ${ssm:/plex-ec2/create-resources, 'true'}
+        - 'true'
+  Resources:
+    PlexRestApi:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: plexEc2Api
+        Description: Plex Ec2 API Gateway
