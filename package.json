@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
     "set-password": "f(){ aws ssm put-parameter --name /plex-ec2/password --type SecureString --overwrite --value $1 | cat; };f",
-    "set-username": "f(){ aws ssm put-parameter --name /plex-ec2/username --type String --overwrite --value $1 | cat; };f"
+    "set-username": "f(){ aws ssm put-parameter --name /plex-ec2/username --type String --overwrite --value $1 | cat; };f",
+    "deploy": "sh ./deploy.sh",
+    "undeploy": "sh ./undeploy.sh"
   },
   "dependencies": {},
   "devDependencies": {

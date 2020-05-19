@@ -1,3 +1,5 @@
+org: joshgarnerdev
+app: plex-ec2
 service: plex-ec2-resources
 provider:
   name: aws
@@ -219,7 +221,9 @@ resources:
                 - ssm:UpdateInstanceInformation
                 - ssm:ListCommands
                 - ssm:ListCommandInvocations
+                - ssm:ListInstanceAssociations
                 - ssm:GetDocument
+                - logs:PutLogEvents
               Resource: '*'
             - Effect: Allow
               Action: 
@@ -297,6 +301,7 @@ resources:
                 make: [] 
                 openssl-devel: []
                 mailcap: []
+                wget: []
                 docker: []
                 jq: []
             files:
@@ -306,56 +311,25 @@ resources:
                 mode: "000644"
                 owner: "root"
                 group: "root"
-              /home/ec2-user/.env: 
-                content: | 
-                  PLEX_CLAIM="claim-"
-                mode: "000644"
-                owner: "root"
-                group: "root"
-              /home/ec2-user/docker-compose.yml: 
-                content: | 
-                  version: '2'
-                  services:
-                    plex:
-                      container_name: plex
-                      image: plexinc/pms-docker
-                      restart: unless-stopped
-                      ports:
-                        - 32400:32400/tcp
-                        - 3005:3005/tcp
-                        - 8324:8324/tcp
-                        - 32469:32469/tcp
-                        - 1900:1900/udp
-                        - 32410:32410/udp
-                        - 32412:32412/udp
-                        - 32413:32413/udp
-                        - 32414:32414/udp
-                      environment:
-                        - TZ="America/Los_Angeles"
-                        - PLEX_CLAIM=$PLEX_CLAIM
-                        - ADVERTISE_IP=http://0.0.0.0:32400/
-                      hostname: Plex-Ec2
-                      volumes:
-                        - /home/ec2-user/plex-config/config:/config 
-                        - /home/ec2-user/plex-config/transcode:/transcode 
-                        - /home/ec2-user/movies:/movies 
-                mode: "000644"
-                owner: "root"
-                group: "root"
             commands: 
               01_ssm_agent: 
-                command: yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-              01_s3fs_clone: 
+                command: |
+                  yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+                  wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
+                  rpm -U ./amazon-cloudwatch-agent.rpm
+                  sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
+                cwd: /home/ec2-user
+              02_s3fs_clone: 
                 command: git clone https://github.com/s3fs-fuse/s3fs-fuse.git
                 cwd: /home/ec2-user
-              02_s3fs_make: 
+              03_s3fs_make: 
                 command: |
                   ./autogen.sh 
                   ./configure --prefix=/usr --with-openssl
                   make
                   make install
                 cwd: /home/ec2-user/s3fs-fuse
-              03_mount: 
+              04_mount: 
                 command: |
                   echo s3fs#plex-movie /home/ec2-user/movies fuse _netdev,allow_other,use_cache=/tmp,umask=0007,uid=$(id -u ec2-user),gid=$(id -u ec2-user),iam_role=PlexEc2Role,auto 0 0 >> /etc/fstab
                   echo /dev/sdb /home/ec2-user/plex-config ext4 defaults,nofail 0 0 >> /etc/fstab
@@ -363,19 +337,26 @@ resources:
                   mkdir -p /home/ec2-user/plex-config
                   mkfs.ext4 /dev/sdb
                   mount -a
-              04_plex_mkdir: 
+              05_plex_mkdir: 
                 command: |
                   mkdir -p /home/ec2-user/plex-config/config
                   mkdir -p /home/ec2-user/plex-config/transcode
-              06_compose_install: 
-                command: |
-                  curl -L https://github.com/docker/compose/releases/download/1.25.5/docker-compose-Linux-x86_64 > /usr/local/bin/docker-compose
-                  chmod a+x /usr/local/bin/docker-compose
-                  /usr/local/bin/docker-compose -p plex up -d
+              06_docker_image: 
+                command: docker image pull plexinc/pms-docker
                 cwd: /home/ec2-user
-              07_claim_token: 
+              07_tokens:
                 command: |
-                  curl -L -f --retry 10 --retry-delay 30 'https://#{PlexRestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}/set-plex-claim-token'
+                  plex_username=${ssm:/plex-ec2/username}
+                  plex_password=${ssm:/plex-ec2/password~true}
+                  auth_token=$(curl -X POST "https://plex.tv/users/sign_in.json?user[login]=$plex_username&user[password]=$plex_password&X-Plex-Client-Identifier=plex-ec2" \
+                    | jq .user.authentication_token \
+                    | tr -d '"')
+                  claim_token=$(curl -L "https://plex.tv/api/claim/token.json?X-Plex-Token=$auth_token" | jq .token | tr -d '"')
+                  echo "auth_token=$auth_token
+                    claim_token=$claim_token
+                    plex_username=$plex_username
+                    plex_password=$plex_password" > .env
+                cwd: /home/ec2-user
             services: 
               sysvinit: 
                 docker: 

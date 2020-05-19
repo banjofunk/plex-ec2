@@ -1,3 +1,5 @@
+org: joshgarnerdev
+app: plex-ec2
 service: plex-ec2-services-ec2
 provider:
   name: aws

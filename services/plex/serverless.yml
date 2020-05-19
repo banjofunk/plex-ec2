@@ -1,3 +1,5 @@
+org: joshgarnerdev
+app: plex-ec2
 service: plex-ec2-services-plex
 provider:
   name: aws
@@ -34,5 +36,9 @@ functions:
     timeout: 180
     events:
       - http:
-          path: associate-claim-token
+          path: associate-claim-token/{token}
           method: get
+          request: 
+            parameters: 
+              paths: 
+                token: true
