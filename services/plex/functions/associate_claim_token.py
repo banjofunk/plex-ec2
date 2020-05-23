@@ -28,18 +28,16 @@ def get_params():
 
 def remove_old_devices(account):
     """Remove old Plex-Ec2 devices from MyPlex account"""
-    try:
-        account.device('Plex-Ec2').delete()
-        print('removed old Plex-Ec2 server.')
-    except NotFound:
-        print('no Plex-Ec2 servers found. moving on...')
+    for device in account.devices():
+        if device.name == 'Plex-Ec2':
+            print(f"removing old Plex-Ec2 instance.")
+            device.delete()
 
 
 def claim_plex_server(token):
     """Associate plex-ec2 server with MyPlex account"""
     plex_ip = os.environ['plexIp']
     baseurl = f"http://{plex_ip}:32400"
-    print('account.authenticationToken', token)
     print('baseurl', baseurl)
     plex_server = PlexServer(baseurl, token)
     print('plex_server', plex_server)
@@ -62,7 +60,7 @@ def update_server_settings(plex_server):
     plex_server.settings.get("AcceptedEULA").set(True)
     plex_server.settings.get("PublishServerOnPlexOnlineKey").set(True)
     plex_server.settings.save()
-    print('saved settings.', plex_server.myPlex)
+    print('saved settings.', plex_server)
 
 
 def handler(event, context):
@@ -71,14 +69,17 @@ def handler(event, context):
     print('TOKEN:', token)
     params = get_params()
     account = MyPlexAccount(params['username'], params['password'])
+    print('account:', account)
     remove_old_devices(account)
+    sleep(20)
     plex_server = claim_plex_server(token)
     create_movies_section(plex_server)
     update_server_settings(plex_server)
     sections = plex_server.library.sections()
     print(sections)
+    sleep(5)
 
     return {
         'statusCode': 200,
-        'body': json.dumps({'sections': sections})
+        'body': json.dumps({'updated': True})
     }

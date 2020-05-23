@@ -12,6 +12,12 @@ provider:
         - ssm:GetParametersByPath
       Resource: 
         - arn:aws:ssm:us-west-2:285012317380:parameter/plex-ec2/
+    - Effect: Allow
+      Action:
+        - states:StartExecution
+        - states:ListExecutions
+      Resource:
+        - "${self:resources.Outputs.PlexServerSetupStepArn.Value}"
   apiGateway:
     restApiId: 
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiId
@@ -23,22 +29,81 @@ provider:
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexIp
     apiBaseUrl: 
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiBaseUrl
+    plexServerSetupStepArn: ${self:resources.Outputs.PlexServerSetupStepArn.Value}
 custom:
+  lambdaArnBase: "arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:${self:service}-${self:provider.stage}"
+  retryStep:
+    - ErrorEquals:
+      - States.ALL
+      IntervalSeconds: 5
+      MaxAttempts: 2
+      BackoffRate: 2
   pythonRequirements:
     dockerizePip: true
 plugins:
+  - serverless-step-functions
   - serverless-pseudo-parameters
   - serverless-python-requirements
 functions:
-  associateClaimToken:
-    handler: functions/associate_claim_token.handler
+  myPlexGetAccountToken:
+    handler: functions/myplex_get_account_token.handler
     runtime: python3.7
-    timeout: 180
+    timeout: 60
+  myplexAccountCleanup:
+    handler: functions/myplex_account_cleanup.handler
+    runtime: python3.7
+    timeout: 60
+  myPlexServerInit:
+    handler: functions/myplex_server_init.handler
+    runtime: python3.7
+    timeout: 60
+  myPlexAddMoviesSection:
+    handler: functions/myplex_add_movies_section.handler
+    runtime: python3.7
+    timeout: 60
+  invokePlexServerSetup:
+    handler: functions/invoke_plex_server_setup.handler
+    runtime: python3.7
+    timeout: 30
     events:
       - http:
-          path: associate-claim-token/{token}
+          path: invoke-plex-server-setup
           method: get
-          request: 
-            parameters: 
-              paths: 
-                token: true
+stepFunctions:
+  stateMachines:
+    plexServerSetupStep: 
+      name: PlexServerSetupStep-${self:provider.stage}
+      definition:
+        Comment: "State Engine for GTO to Customer First"
+        StartAt: MyplexAccountCleanupState
+        States:
+          MyplexAccountCleanupState:
+            Type: Task
+            Resource: "${self:custom.lambdaArnBase}-myplexAccountCleanup"
+            Retry: ${self:custom.retryStep}
+            Next: MyPlexGetAccountTokenState
+          MyPlexGetAccountTokenState:
+            Type: Task
+            Resource: "${self:custom.lambdaArnBase}-myPlexGetAccountToken"
+            Retry: ${self:custom.retryStep}
+            Next: MyPlexServerInitState
+          MyPlexServerInitState:
+            Type: Task
+            Resource: "${self:custom.lambdaArnBase}-myPlexServerInit"
+            Retry: ${self:custom.retryStep}
+            Next: MyPlexAddMoviesSectionState
+          MyPlexAddMoviesSectionState:
+            Type: Task
+            Resource: "${self:custom.lambdaArnBase}-myPlexAddMoviesSection"
+            Retry: ${self:custom.retryStep}
+            Next: FinalState
+          FinalState:
+            Type: Pass
+            End: true
+resources:
+  Outputs:
+    PlexServerSetupStepArn:
+      Description: The ARN of the Plex Server Setup State Machine
+      Value:
+        Ref: PlexServerSetupStepDash${self:provider.stage}
+

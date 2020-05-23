@@ -2,14 +2,13 @@
 const AWS = require('aws-sdk');
 
 const ssm = new AWS.SSM();
-const fetch = require('node-fetch');
 const getParams = require('../helpers/getParams');
 
 module.exports.handler = async (event, context) => {
   const { username, password } = await getParams();
-  const associateClaimTokenUrl = `${process.env.apiBaseUrl}/associate-claim-token`;
+  const invokePlexServerSetupUrl = `${process.env.apiBaseUrl}/invoke-plex-server-setup`;
 
-  console.log('associateClaimTokenUrl', associateClaimTokenUrl);
+  console.log('invokePlexServerSetupUrl', invokePlexServerSetupUrl);
 
   const params = {
     DocumentName: 'AWS-RunShellScript',
@@ -50,7 +49,7 @@ module.exports.handler = async (event, context) => {
           -v /home/ec2-user/movies:/movies \
         plexinc/pms-docker`,
         'sleep 2',
-        `curl -L "${associateClaimTokenUrl}/$auth_token"`,
+        `curl -L "${invokePlexServerSetupUrl}"`,
       ],
     },
     TimeoutSeconds: 30,

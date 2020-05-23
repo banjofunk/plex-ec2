@@ -46,10 +46,9 @@ done
 wait
 
 resouces_dir=$(pwd)
-cd services/ec2
-serverless invoke -f setPlexClaimToken
-cd $resouces_dir
-open "http://app.plex.tv"
+# cd services/ec2
+# serverless invoke -f setPlexClaimToken
+# cd $resouces_dir
 
 echo "
 
