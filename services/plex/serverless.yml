@@ -106,4 +106,7 @@ resources:
       Description: The ARN of the Plex Server Setup State Machine
       Value:
         Ref: PlexServerSetupStepDash${self:provider.stage}
-
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
