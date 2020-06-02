@@ -12,27 +12,36 @@ provider:
         - ssm:SendCommand
       Resource: 
         - arn:aws:ec2:#{AWS::Region}:#{AWS::AccountId}:instance/*
-        - arn:aws:ssm:us-west-2::document/AWS-RunShellScript
+        - arn:aws:ssm:#{AWS::Region}::document/AWS-RunShellScript
     - Effect: Allow
       Action:
         - ssm:GetParametersByPath
       Resource: 
-        - arn:aws:ssm:us-west-2:285012317380:parameter/plex-ec2/
+        - arn:aws:ssm:#{AWS::Region}:#{AWS::AccountId}:parameter/plex-ec2/
+    - Effect: Allow
+      Action:
+        - cloudformation:DescribeStacks
+      Resource: 
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-vpc-ec2-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-resources-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-services-plex-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-services-ec2-${self:provider.stage}/*
   apiGateway:
     restApiId: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiId
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiId
     restApiRootResourceId: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiResourceId
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiRootResourceId
   environment:
     stage: ${self:provider.stage}
-    plexIp: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexIp
-    apiBaseUrl: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiBaseUrl
-    PlexEc2InstanceId: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexEc2InstanceId
+    apiEndpoint: ${cf:${self:service}-${self:provider.stage}.ServiceEndpoint} 
+custom:
+  restApiId:
+    Fn::ImportValue: plex-ec2-resources-dev-RestApiId
 plugins:
   - serverless-pseudo-parameters
+package:
+  exclude:
+    - node_modules/**
 functions:
   stopEc2Instance:
     handler: functions/stopEc2Instance.handler

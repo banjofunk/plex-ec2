@@ -18,17 +18,21 @@ provider:
         - states:ListExecutions
       Resource:
         - "${self:resources.Outputs.PlexServerSetupStepArn.Value}"
+    - Effect: Allow
+      Action:
+        - cloudformation:DescribeStacks
+      Resource: 
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-vpc-ec2-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-resources-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-services-plex-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-services-ec2-${self:provider.stage}/*
   apiGateway:
     restApiId: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiId
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiId
     restApiRootResourceId: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiResourceId
+      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiRootResourceId
   environment:
     stage: ${self:provider.stage}
-    plexIp: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexIp
-    apiBaseUrl: 
-      Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-PlexApiBaseUrl
     plexServerSetupStepArn: ${self:resources.Outputs.PlexServerSetupStepArn.Value}
 custom:
   lambdaArnBase: "arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:${self:service}-${self:provider.stage}"
@@ -44,6 +48,10 @@ plugins:
   - serverless-step-functions
   - serverless-pseudo-parameters
   - serverless-python-requirements
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
 functions:
   myPlexGetAccountToken:
     handler: functions/myplex_get_account_token.handler
@@ -106,7 +114,3 @@ resources:
       Description: The ARN of the Plex Server Setup State Machine
       Value:
         Ref: PlexServerSetupStepDash${self:provider.stage}
-package:
-  exclude:
-    - node_modules/**
-    - venv/**

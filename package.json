@@ -6,10 +6,13 @@
   "scripts": {
     "set-password": "f(){ aws ssm put-parameter --name /plex-ec2/password --type SecureString --overwrite --value $1 | cat; };f",
     "set-username": "f(){ aws ssm put-parameter --name /plex-ec2/username --type String --overwrite --value $1 | cat; };f",
+    "upload-templates": "node ./templates/uploadTemplates.js",
     "deploy": "sh ./deploy.sh",
     "undeploy": "sh ./undeploy.sh"
   },
-  "dependencies": {},
+  "dependencies": {
+    "serverless-plugin-scripts": "^1.0.2"
+  },
   "devDependencies": {
     "babel-eslint": "^10.0.3",
     "eslint": "^6.8.0",

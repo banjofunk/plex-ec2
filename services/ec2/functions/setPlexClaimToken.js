@@ -3,12 +3,15 @@ const AWS = require('aws-sdk');
 
 const ssm = new AWS.SSM();
 const getParams = require('../helpers/getParams');
+const getOutputs = require('../helpers/getOutputs');
 
 module.exports.handler = async (event, context) => {
-  const { username, password } = await getParams();
-  const invokePlexServerSetupUrl = `${process.env.apiBaseUrl}/invoke-plex-server-setup`;
+  const { PlexEc2InstanceId: plexEc2InstanceId } = await getOutputs();
 
-  console.log('invokePlexServerSetupUrl', invokePlexServerSetupUrl);
+  const { username, password } = await getParams();
+  const invokePlexStepUrl = `${process.env.apiEndpoint}/invoke-plex-server-setup`;
+
+  console.log('invokePlexStepUrl', invokePlexStepUrl);
 
   const params = {
     DocumentName: 'AWS-RunShellScript',
@@ -17,7 +20,7 @@ module.exports.handler = async (event, context) => {
       CloudWatchOutputEnabled: true,
     },
     Comment: 'set plex claim token and start plex media server',
-    InstanceIds: [process.env.PlexEc2InstanceId],
+    InstanceIds: [plexEc2InstanceId],
     Parameters: {
       commands: [
         'cd /home/ec2-user',
@@ -43,13 +46,13 @@ module.exports.handler = async (event, context) => {
           -e TZ="America/Los_Angeles" \
           -e PLEX_CLAIM="$claim_token" \
           -e ADVERTISE_IP=http://0.0.0.0:32400/ \
-          -h Plex-Ec2 \
+          -h plex-ec2 \
           -v /home/ec2-user/plex-config/config:/config \
           -v /home/ec2-user/plex-config/transcode:/transcode \
           -v /home/ec2-user/movies:/movies \
         plexinc/pms-docker`,
         'sleep 2',
-        `curl -L "${invokePlexServerSetupUrl}"`,
+        `curl -L "${invokePlexStepUrl}"`,
       ],
     },
     TimeoutSeconds: 30,
