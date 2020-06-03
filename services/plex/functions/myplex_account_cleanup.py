@@ -8,7 +8,15 @@ def handler(event, context):
     outputs = get_outputs()
     print('outputs', outputs)
 
-    account = get_myplex_account()
+    try:
+        account = get_myplex_account()
+    except:
+        print("error signing in to plex account")
+        return {
+            'statusCode': 500,
+            'body': '{"error": "error signing in to plex account"}',
+        }
+
     print('account', account)
     for device in account.devices():
         if (device.name == 'Plex-Ec2'):

@@ -30,13 +30,17 @@ remove() {
     echo "${green}$SERVICENAME service removed.${reset}\n"
 }
 
-## Install service deps / Deploy services
-for service in services/*/
-do
-    remove $service &
-done
-wait 
-echo "${orange}Removing plex-ec2 resources.${reset}\n"
+
+cwd=$(pwd)
+cd 'services/ec2'
+serverless invoke -f deletePlexEc2Instance
+cd $cwd
+
+echo "${orange}plex-ec2 instance removed.${reset}\n"
+
+remove 'services/ec2'
+remove 'services/plex'
+
 serverless remove
 echo "${green}plex-ec2 resources removed.${reset}\n"
 

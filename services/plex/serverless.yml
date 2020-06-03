@@ -1,5 +1,3 @@
-org: joshgarnerdev
-app: plex-ec2
 service: plex-ec2-services-plex
 provider:
   name: aws
@@ -22,10 +20,7 @@ provider:
       Action:
         - cloudformation:DescribeStacks
       Resource: 
-        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-vpc-ec2-${self:provider.stage}/*
-        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-resources-${self:provider.stage}/*
-        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-services-plex-${self:provider.stage}/*
-        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/plex-ec2-services-ec2-${self:provider.stage}/*
+        - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/*
   apiGateway:
     restApiId: 
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiId

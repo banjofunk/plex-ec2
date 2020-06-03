@@ -25,7 +25,7 @@ deploy() {
     echo "${green}Deploying $SERVICENAME${reset}\n"
     cwd=$(pwd)
     cd $SERVICE
-    npm install
+    yarn install
     PYTHON_REQUIREMENTS=./requirements.txt
     if test -f "$PYTHON_REQUIREMENTS"; then
         pip install -r ./requirements.txt
@@ -35,20 +35,15 @@ deploy() {
 }
 
 ## Install deps / Deploy resrouces
-npm install
+yarn install
 serverless deploy --stage $STAGE --region $REGION
+deploy 'services/ec2'
+deploy 'services/plex'
 
-## Install service deps / Deploy services
-for service in services/*/
-do
-    deploy $service &
-done
-wait
-
-resouces_dir=$(pwd)
-# cd services/ec2
-# serverless invoke -f setPlexClaimToken
-# cd $resouces_dir
+cwd=$(pwd)
+cd 'services/ec2'
+serverless invoke -f createPlexEc2Instance
+cd $cwd
 
 echo "
 

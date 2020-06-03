@@ -14,4 +14,8 @@ def handler(event, context):
         stateMachineArn=step_function_arn,
         input=json.dumps({'lambda_invoked': True})
     )
-    return response
+
+    print('event', event)
+    print('response', response)
+
+    return True

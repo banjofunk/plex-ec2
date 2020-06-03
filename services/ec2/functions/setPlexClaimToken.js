@@ -7,12 +7,7 @@ const getOutputs = require('../helpers/getOutputs');
 
 module.exports.handler = async (event, context) => {
   const { PlexEc2InstanceId: plexEc2InstanceId } = await getOutputs();
-
   const { username, password } = await getParams();
-  const invokePlexStepUrl = `${process.env.apiEndpoint}/invoke-plex-server-setup`;
-
-  console.log('invokePlexStepUrl', invokePlexStepUrl);
-
   const params = {
     DocumentName: 'AWS-RunShellScript',
     CloudWatchOutputConfig: {
@@ -52,7 +47,7 @@ module.exports.handler = async (event, context) => {
           -v /home/ec2-user/movies:/movies \
         plexinc/pms-docker`,
         'sleep 2',
-        `curl -L "${invokePlexStepUrl}"`,
+        `curl -L "${process.env.apiEndpoint}/invoke-plex-server-setup"`,
       ],
     },
     TimeoutSeconds: 30,
@@ -61,8 +56,6 @@ module.exports.handler = async (event, context) => {
     .sendCommand(params)
     .promise()
     .catch(console.error);
-
-  console.log('Send Command params:', params);
 
   return {
     statusCode: 200,
