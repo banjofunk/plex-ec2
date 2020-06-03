@@ -6,6 +6,8 @@ green=$(tput setaf 2)
 orange=$(tput setaf 3)
 reset=$(tput sgr0)
 
+prefix="${orange}Plex Ec2:${reset}"
+
 ## Default Settings
 STAGE="dev"
 REGION="us-west-2"
@@ -22,27 +24,31 @@ remove() {
     SERVICE=$1
     SERVICENAME="$(getServiceName $SERVICE)"
 
-    echo "${orange}Removing $SERVICENAME${reset} service\n"
+    echo "${prefix} Removing ${orange}$SERVICENAME${reset} service\n"
     cwd=$(pwd)
     cd $SERVICE
     serverless remove
     cd $cwd
-    echo "${green}$SERVICENAME service removed.${reset}\n"
+    echo "${prefix} ${green}$SERVICENAME service removed.${reset}\n"
 }
 
 
-cwd=$(pwd)
-cd 'services/ec2'
-serverless invoke -f deletePlexEc2Instance
-cd $cwd
+echo "${orange}removing plex-ec2 instance...${reset}\n"
 
-echo "${orange}plex-ec2 instance removed.${reset}\n"
+aws cloudformation delete-stack \
+  --stack-name "plex-vpc-ec2-$STAGE" \
+  --output text >/dev/null
+
+aws cloudformation wait stack-delete-complete \
+  --stack-name "plex-vpc-ec2-$STAGE"
+
+echo "${prefix} ${green}plex-ec2 instance removed.${reset}\n"
 
 remove 'services/ec2'
 remove 'services/plex'
 
 serverless remove
-echo "${green}plex-ec2 resources removed.${reset}\n"
+echo "${prefix} ${green}plex-ec2 resources removed.${reset}\n"
 
 wait
 
