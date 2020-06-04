@@ -7,7 +7,7 @@ provider:
 custom:
   scripts:
     hooks:
-      'before:deploy:deploy': yarn upload-templates
+      'before:deploy:deploy': npm run upload-templates
 plugins:
   - serverless-pseudo-parameters
   - serverless-plugin-scripts

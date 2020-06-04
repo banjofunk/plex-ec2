@@ -1,22 +1,28 @@
 // eslint-disable-next-line import/no-unresolved
 const AWS = require('aws-sdk');
+const getOutputs = require('../helpers/getOutputs');
 
 const ec2 = new AWS.EC2();
 
 module.exports.handler = async (event, context) => {
-  const params = {
-    InstanceIds: ['i-0f754c245559df22c'],
-  };
+  const { PlexEc2InstanceId: plexEc2InstanceId } = await getOutputs();
 
+  console.log('Stopping ec2:', plexEc2InstanceId);
+  const params = { InstanceIds: [plexEc2InstanceId] };
   const ec2Resp = await ec2
     .stopInstances(params)
     .promise()
-    .catch(console.error);
+    .then(response => ({
+      statusCode: 200,
+      body: JSON.stringify({ response }),
+    }))
+    .catch(err => {
+      console.error(err);
 
-  console.log('Stop Instances params:', params);
+      return err;
+    });
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ response: ec2Resp }),
-  };
+  console.log('ec2Resp', ec2Resp);
+
+  return ec2Resp;
 };

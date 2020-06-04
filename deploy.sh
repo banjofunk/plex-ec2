@@ -6,6 +6,8 @@ green=$(tput setaf 2)
 orange=$(tput setaf 3)
 reset=$(tput sgr0)
 
+prefix="${orange}Plex Ec2:${reset}"
+
 ## Default Settings
 STAGE="dev"
 REGION="us-west-2"
@@ -21,11 +23,10 @@ getServiceName() {
 deploy() {
     SERVICE=$1
     SERVICENAME="$(getServiceName $SERVICE)"
-
-    echo "${green}Deploying $SERVICENAME${reset}\n"
+    echo "${prefix} Deploying ${orange}$SERVICENAME${reset} service\n"
     cwd=$(pwd)
     cd $SERVICE
-    yarn install
+    npm install
     PYTHON_REQUIREMENTS=./requirements.txt
     if test -f "$PYTHON_REQUIREMENTS"; then
         pip install -r ./requirements.txt
@@ -35,7 +36,7 @@ deploy() {
 }
 
 ## Install deps / Deploy resrouces
-yarn install
+npm install
 serverless deploy --stage $STAGE --region $REGION
 deploy 'services/ec2'
 deploy 'services/plex'
