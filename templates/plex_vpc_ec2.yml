@@ -302,7 +302,6 @@ Resources:
               command: |
                 echo "calling $API_ENDPOINT/set-plex-claim-token"
                 curl -L "$API_ENDPOINT/set-plex-claim-token"
-                sleep 2
               env: 
                 API_ENDPOINT: !Ref ApiEndpoint
               cwd: /home/ec2-user

@@ -2,7 +2,7 @@
 
 ## Set up colors
 red=$(tput setaf 1)
-green=$(tput setaf 2)
+green=$(tput setaf 28)
 orange=$(tput setaf 3)
 reset=$(tput sgr0)
 
@@ -29,11 +29,11 @@ remove() {
     cd $SERVICE
     serverless remove
     cd $cwd
-    echo "${prefix} ${green}$SERVICENAME service removed.${reset}\n"
+    echo "${prefix} Service ${green}$SERVICENAME${reset} removed.\n"
 }
 
 
-echo "${orange}removing plex-ec2 instance...${reset}\n"
+echo "${orange}removing plex-vpc-ec2 instance...${reset}\n"
 
 aws cloudformation delete-stack \
   --stack-name "plex-vpc-ec2-$STAGE" \
@@ -42,13 +42,13 @@ aws cloudformation delete-stack \
 aws cloudformation wait stack-delete-complete \
   --stack-name "plex-vpc-ec2-$STAGE"
 
-echo "${prefix} ${green}plex-ec2 instance removed.${reset}\n"
+echo "${prefix} Instance ${green}plex-vpc-ec2-$STAGE${reset} removed\n"
 
 remove 'services/ec2'
 remove 'services/plex'
 
 serverless remove
-echo "${prefix} ${green}plex-ec2 resources removed.${reset}\n"
+echo "${prefix} Resource ${green}plex-vpc-ec2-resrouces-$STAGE ${reset}removed\n"
 
 wait
 
