@@ -41,18 +41,8 @@ serverless deploy --stage $STAGE --region $REGION
 deploy 'services/ec2'
 deploy 'services/plex'
 
-cwd=$(pwd)
-cd 'services/ec2'
-echo "${prefix} Creating ${orange}plex-vpc-ec2-$STAGE${reset} instance\n"
-serverless invoke -f createPlexEc2Instance
-aws cloudformation wait stack-create-complete --stack-name "plex-vpc-ec2-$STAGE"
-echo "${prefix} Instance ${green}plex-vpc-ec2-$STAGE${reset} created\n"
-
 echo "${prefix} ${orange}setting up plex server...${reset}\n"
-serverless invoke -f setPlexClaimToken
-
-
-cd $cwd
+(cd services/plex; serverless invoke -f invoke_plex_server_setup)
 
 echo "
 

@@ -1,3 +1,4 @@
+#backup
 AWSTemplateFormatVersion: "2010-09-09"
 Description: A sample template
 Parameters: 
@@ -5,9 +6,6 @@ Parameters:
     Type: String
     Default: dev
     Description: plex vpc ec2 Stage
-  ApiEndpoint: 
-    Type: String
-    Description: plex vpc ec2 ApiEndpoint
   AvailabilityZone: 
     Type: String
     Description: plex vpc ec2 AvailabilityZone
@@ -178,7 +176,6 @@ Resources:
               - ssm:ListCommandInvocations
               - ssm:ListInstanceAssociations
               - ssm:GetDocument
-              - logs:PutLogEvents
             Resource: '*'
           - Effect: Allow
             Action: 
@@ -232,17 +229,68 @@ Resources:
             VolumeSize: 10
             DeleteOnTermination: true
       UserData: 
-        "Fn::Base64": 
-          "Fn::Sub": | 
+        Fn::Base64:
+          Fn::Sub: |
             #!/bin/bash -v
             yum update -y
             yum install -y aws-cfn-bootstrap
-            /opt/aws/bin/cfn-init -s ${AWS::StackId} -r PlexEc2 --region ${AWS::Region} ||
+
+            /opt/aws/bin/cfn-init --stack ${AWS::StackName} --resource PlexEc2 --region ${AWS::Region} --configsets install_all ||
+            error_exit 'failed to execute cfn-init'
+            
+            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource PlexEc2 --region ${AWS::Region} ||
             error_exit 'failed to execute cfn-init'
     Metadata:
       Comment: Plex Dependencies
       AWS::CloudFormation::Init:
-        config:
+        configSets:
+          install_all:
+            - install_cfn_hup
+            - install_ssm_agent
+            - fuse_setup
+            - app_setup
+          install_update:
+            - app_setup
+        install_cfn_hup:
+          files:
+            /etc/cfn/cfn-hup.conf:
+              content:
+                Fn::Sub: |
+                  [main]
+                  stack=${AWS::StackId}
+                  region=${AWS::Region}
+              mode: '000400'
+              owner: root
+              group: root
+            /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+              content:
+                Fn::Sub: |
+                  [cfn-auto-reloader-hook]
+                  triggers=post.update
+                  path=Resources.PlexEc2.Metadata.AWS::CloudFormation::Init
+                  action=/opt/aws/bin/cfn-init -v
+                      --stack ${AWS::StackName}
+                      --resource PlexEc2
+                      --configsets install_update
+                      --region ${AWS::Region}
+                  runas=root
+              mode: '000400'
+              owner: root
+              group: root
+          services:
+            sysvinit:
+              cfn-hup:
+                enabled: 'true'
+                ensureRunning: 'true'
+                files:
+                  - /etc/cfn/cfn-hup.conf
+                  - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+        install_ssm_agent:
+          commands: 
+            01_yum_ssm_agent: 
+              command: |
+                yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+        fuse_setup:
           packages:
             yum: 
               automake: [] 
@@ -255,9 +303,6 @@ Resources:
               make: [] 
               openssl-devel: []
               mailcap: []
-              wget: []
-              docker: []
-              jq: []
           files:
             /etc/fuse.conf: 
               content: | 
@@ -266,13 +311,6 @@ Resources:
               owner: "root"
               group: "root"
           commands: 
-            01_ssm_agent: 
-              command: |
-                yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
-                wget https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm
-                rpm -U ./amazon-cloudwatch-agent.rpm
-                sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s
-              cwd: /home/ec2-user
             02_s3fs_clone: 
               command: git clone https://github.com/s3fs-fuse/s3fs-fuse.git
               cwd: /home/ec2-user
@@ -295,15 +333,17 @@ Resources:
               command: |
                 mkdir -p /home/ec2-user/plex-config/config
                 mkdir -p /home/ec2-user/plex-config/transcode
-            06_docker_image: 
+        app_setup:
+          packages:
+            yum: 
+              git: [] 
+              libcurl-devel: [] 
+              wget: []
+              docker: []
+              jq: []
+          commands:
+            01_pull_docker_image: 
               command: docker image pull plexinc/pms-docker
-              cwd: /home/ec2-user
-            07_invoke_plex_step:
-              command: |
-                echo "calling $API_ENDPOINT/set-plex-claim-token"
-                curl -L "$API_ENDPOINT/set-plex-claim-token"
-              env: 
-                API_ENDPOINT: !Ref ApiEndpoint
               cwd: /home/ec2-user
           services: 
             sysvinit: 

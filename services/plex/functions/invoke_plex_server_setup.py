@@ -10,12 +10,15 @@ def handler(event, context):
     """invoke step function handler"""
     step_function_arn = os.environ['plexServerSetupStepArn']
     print('step_function_arn', step_function_arn)
-    response = stepfunctions.start_execution(
-        stateMachineArn=step_function_arn,
-        input=json.dumps({'lambda_invoked': True})
-    )
+    try:
+        response = stepfunctions.start_execution(
+            stateMachineArn=step_function_arn,
+            input=json.dumps({'lambda_invoked': True})
+        )
+    except:
+        return False
 
     print('event', event)
     print('response', response)
 
-    return True
+    return response['executionArn']

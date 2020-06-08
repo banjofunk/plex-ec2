@@ -69,12 +69,6 @@ functions:
     handler: functions/startEc2Instance.handler
   searchTorrent:
     handler: functions/searchTorrent.handler
-  setPlexClaimToken:
-    handler: functions/setPlexClaimToken.handler
-    events:
-      - http:
-          path: set-plex-claim-token
-          method: get
 resources:
   Conditions:
     CreateResources: 

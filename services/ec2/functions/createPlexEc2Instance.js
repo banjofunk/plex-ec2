@@ -13,10 +13,6 @@ module.exports.handler = async (event, context) => {
         ParameterKey: 'AvailabilityZone',
         ParameterValue: process.env.availabilityZone,
       },
-      {
-        ParameterKey: 'ApiEndpoint',
-        ParameterValue: process.env.apiEndpoint,
-      },
     ],
   };
 
