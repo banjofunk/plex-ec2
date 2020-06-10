@@ -7,7 +7,7 @@ client = boto3.client('cloudformation')
 
 def handler(event, context):
     """invoke step function handler"""
-    response = client.create_stack(
+    response = client.update_stack(
         StackName=f"plex-vpc-ec2-{os.environ['stage']}",
         TemplateURL='https://plex-movie.s3.amazonaws.com/plex_vpc_ec2.yml',
         Parameters=[
@@ -17,7 +17,7 @@ def handler(event, context):
             },
             {
                 'ParameterKey': 'WithIpAddress',
-                'ParameterValue': 'true',
+                'ParameterValue': 'false',
             },
         ],
         Capabilities=[
@@ -26,6 +26,6 @@ def handler(event, context):
     )
 
     print('response', response)
-    event['stackStatus'] = 'CREATING_COMPLETE'
+    event['updateStackStatus'] = 'UPDATE_IN_PROGRESS'
 
     return event

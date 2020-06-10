@@ -1,4 +1,3 @@
-#backup
 AWSTemplateFormatVersion: "2010-09-09"
 Description: A sample template
 Parameters: 
@@ -9,6 +8,11 @@ Parameters:
   AvailabilityZone: 
     Type: String
     Description: plex vpc ec2 AvailabilityZone
+  WithIpAddress:
+    Type: String
+    Description: plex vpc ec2 should have ip address
+Conditions:
+  WithIpAddressCondition: !Equals ["true", !Ref WithIpAddress]
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -29,13 +33,53 @@ Resources:
         - Key: Application
           Value: 
             Ref: AWS::StackId
-  SubnetNetworkAclAssociation:
-    Type: AWS::EC2::SubnetNetworkAclAssociation
+  PlexInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Application
+          Value: 
+            Ref: AWS::StackId
+  PlexAttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: 
+        Ref: VPC
+      InternetGatewayId: 
+        Ref: PlexInternetGateway
+  PlexIPAddress:
+    Type: AWS::EC2::EIP
+    DependsOn: PlexAttachGateway
+    Condition: WithIpAddressCondition
+    Properties:
+      Domain: vpc
+      InstanceId: 
+        Ref: PlexEc2
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    DependsOn: PlexAttachGateway
+    Properties:
+      VpcId: 
+        Ref: VPC
+      Tags:
+        - Key: Application
+          Value: 
+            Ref: AWS::StackId
+  PlexRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: 
+        Ref: RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: 
+        Ref: PlexInternetGateway
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: 
         Ref: Subnet
-      NetworkAclId: 
-        Ref: NetworkAcl
+      RouteTableId: 
+        Ref: RouteTable
   NetworkAcl:
     Type: AWS::EC2::NetworkAcl
     Properties:
@@ -45,6 +89,13 @@ Resources:
         - Key: Application
           Value: 
             Ref: AWS::StackId
+  SubnetNetworkAclAssociation:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      SubnetId: 
+        Ref: Subnet
+      NetworkAclId: 
+        Ref: NetworkAcl
   InboundHTTPNetworkAclEntry:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
@@ -248,9 +299,9 @@ Resources:
             - install_cfn_hup
             - install_ssm_agent
             - fuse_setup
-            - app_setup
+            - install_app_deps
           install_update:
-            - app_setup
+            - install_app_deps
         install_cfn_hup:
           files:
             /etc/cfn/cfn-hup.conf:
@@ -333,7 +384,7 @@ Resources:
               command: |
                 mkdir -p /home/ec2-user/plex-config/config
                 mkdir -p /home/ec2-user/plex-config/transcode
-        app_setup:
+        install_app_deps:
           packages:
             yum: 
               git: [] 
@@ -349,52 +400,13 @@ Resources:
             sysvinit: 
               docker: 
                 enabled: true
-  PlexInternetGateway:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Application
-          Value: 
-            Ref: AWS::StackId
-  PlexAttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: 
-        Ref: VPC
-      InternetGatewayId: 
-        Ref: PlexInternetGateway
-  PlexIPAddress:
-    Type: AWS::EC2::EIP
-    DependsOn: PlexAttachGateway
-    Properties:
-      Domain: vpc
-      InstanceId: 
-        Ref: PlexEc2
-  RouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: 
-        Ref: VPC
-      Tags:
-        - Key: Application
-          Value: 
-            Ref: AWS::StackId
-  PlexRoute:
-    Type: AWS::EC2::Route
-    DependsOn: PlexAttachGateway
-    Properties:
-      RouteTableId: 
-        Ref: RouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: 
-        Ref: PlexInternetGateway
-  SubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: 
-        Ref: Subnet
-      RouteTableId: 
-        Ref: RouteTable
+        confirm_create_update:
+          commands:
+            01_ls:
+              command: |
+                ls -la
+                echo "plex ec2 setup complete"
+              cwd: /home/ec2-user
 Outputs:
   PlexEc2InstanceId:
     Description: Plex Ec2 - ec2 instance id
@@ -404,6 +416,7 @@ Outputs:
       Name: !Sub ${AWS::StackName}-PlexEc2InstanceId
   PlexIp:
     Description: Plex Ec2 - ec2 internet gateway public ip
+    Condition: WithIpAddressCondition
     Value: 
       Fn::GetAtt:
         - PlexEc2

@@ -2,17 +2,14 @@
 import os
 import json
 import boto3
-
 stepfunctions = boto3.client('stepfunctions')
 
 
 def handler(event, context):
     """invoke step function handler"""
-    step_function_arn = os.environ['plexServerSetupStepArn']
-    print('step_function_arn', step_function_arn)
     try:
         response = stepfunctions.start_execution(
-            stateMachineArn=step_function_arn,
+            stateMachineArn=os.environ['plexServerDownStepArn'],
             input=json.dumps({'lambda_invoked': True})
         )
     except:

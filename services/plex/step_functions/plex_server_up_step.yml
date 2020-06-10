@@ -1,0 +1,167 @@
+name: PlexServerUpStep-${self:provider.stage}
+definition:
+  Comment: "PlexServerUpStep - with IP"
+  StartAt: CheckStackExistsState
+  States:
+    CheckStackExistsState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_stack_status"
+      Retry: ${self:custom.retryStep}
+      Next: StackExistsChoiceState
+    StackExistsChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.stackStatus"
+          StringEquals: "NO_STACK"
+          Next: CreateStackState
+      Default: UpdateStackState
+    CreateStackState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-create_stack"
+      Retry: ${self:custom.retryStep}
+      Next: WaitForCreateStackState
+    WaitForCreateStackState:
+      Type: Wait
+      Seconds: 10
+      Next: CheckCreateStackStatusState
+    CheckCreateStackStatusState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_stack_status"
+      Retry: ${self:custom.retryStep}
+      Next: CreateStackChoiceState
+    CreateStackChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.stackStatus"
+          StringEquals: "CREATE_IN_PROGRESS"
+          Next: WaitForCreateStackState
+        - Variable: "$.stackStatus"
+          StringEquals: "CREATE_FAILED"
+          Next: PlexServerUpFailState
+        - Variable: "$.stackStatus"
+          StringEquals: "CREATE_COMPLETE"
+          Next: WaitForInstanceRunningState
+      Default: WaitForCreateStackState
+    UpdateStackState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-attach_plex_ec2_ip"
+      Retry: ${self:custom.retryStep}
+      Next: WaitForUpdateStackState
+    WaitForUpdateStackState:
+      Type: Wait
+      Seconds: 10
+      Next: CheckUpdateStackStatusState
+    CheckUpdateStackStatusState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_stack_status"
+      Retry: ${self:custom.retryStep}
+      Next: UpdateStackChoiceState
+    UpdateStackChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.stackStatus"
+          StringEquals: "UPDATE_IN_PROGRESS"
+          Next: WaitForUpdateStackState
+        - Variable: "$.stackStatus"
+          StringEquals: "UPDATE_FAILED"
+          Next: PlexServerUpFailState
+        - Variable: "$.stackStatus"
+          StringEquals: "UPDATE_COMPLETE"
+          Next: WaitForInstanceRunningState
+      Default: WaitForUpdateStackState
+    WaitForInstanceRunningState:
+      Type: Wait
+      Seconds: 10
+      Next: CheckInstanceRunningState
+    CheckInstanceRunningState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_instance_state"
+      Retry: ${self:custom.retryStep}
+      Next: InstanceRunningChoiceState
+    InstanceRunningChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.instanceState"
+          StringEquals: "error"
+          Next: PlexServerUpFailState
+        - Variable: "$.instanceState"
+          StringEquals: "stopped"
+          Next: StartPlexEc2State
+        - Variable: "$.instanceState"
+          StringEquals: "running"
+          Next: WaitForStatusOkState
+      Default: WaitForInstanceRunningState
+    StartPlexEc2State:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-start_plex_ec2"
+      Retry: ${self:custom.retryStep}
+      Next: WaitForInstanceRunningState
+    WaitForStatusOkState:
+      Type: Wait
+      Seconds: 10
+      Next: CheckStatusOkStatusState
+    CheckStatusOkStatusState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_instance_status"
+      Retry: ${self:custom.retryStep}
+      Next: StatusOkChoiceState
+    StatusOkChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.instanceStatus"
+          StringEquals: "STATUS_ERROR"
+          Next: PlexServerUpFailState
+        - Variable: "$.instanceStatus"
+          StringEquals: "STATUS_OK"
+          Next: MyplexAccountCleanupState
+      Default: WaitForStatusOkState
+    MyplexAccountCleanupState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-myplex_account_cleanup"
+      Retry: ${self:custom.retryStep}
+      Next: MyPlexGetAccountTokenState
+    MyPlexGetAccountTokenState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-myplex_get_account_token"
+      Retry: ${self:custom.retryStep}
+      Next: ClaimPlexServerState
+    ClaimPlexServerState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-claim_plex_server"
+      Retry: ${self:custom.retryStep}
+      Next: CheckRunCommandStatusState
+    CheckRunCommandStatusState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_run_command_status"
+      Retry: ${self:custom.retryStep}
+      Next: RunCommandChoiceState
+    RunCommandChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.runCommandStatus"
+          StringEquals: "Failed"
+          Next: PlexServerUpFailState
+        - Variable: "$.runCommandStatus"
+          StringEquals: "Success"
+          Next: MyPlexServerInitState
+      Default: WaitForRunCommandState
+    WaitForRunCommandState:
+      Type: Wait
+      Seconds: 10
+      Next: CheckRunCommandStatusState
+    MyPlexServerInitState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-myplex_server_init"
+      Retry: ${self:custom.retryStep}
+      Next: MyPlexAddMoviesSectionState
+    MyPlexAddMoviesSectionState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-myplex_add_movies_section"
+      Retry: ${self:custom.retryStep}
+      Next: FinalState
+    PlexServerUpFailState:
+      Type: Fail
+      Cause: plex server up step function failed
+    FinalState:
+      Type: Pass
+      End: true

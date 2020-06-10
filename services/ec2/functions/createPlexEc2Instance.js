@@ -13,6 +13,10 @@ module.exports.handler = async (event, context) => {
         ParameterKey: 'AvailabilityZone',
         ParameterValue: process.env.availabilityZone,
       },
+      {
+        ParameterKey: 'WithIpAddress',
+        ParameterValue: 'true',
+      },
     ],
   };
 

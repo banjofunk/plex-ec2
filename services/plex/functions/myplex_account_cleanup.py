@@ -7,6 +7,7 @@ def handler(event, context):
     """Use PlexApi to remove old plex ec2 servers and MyPlex devices"""
     outputs = get_outputs()
     print('outputs', outputs)
+    device_name = outputs['PlexIp'] if 'PlexIp' in outputs else 'noplexip'
 
     try:
         account = get_myplex_account()
@@ -17,23 +18,15 @@ def handler(event, context):
             'body': '{"error": "error signing in to plex account"}',
         }
 
-    print('account', account)
     for device in account.devices():
-        if (device.name == 'Plex-Ec2'):
-            try:
+        if (device.token != account.authenticationToken):
+            if (device.name == 'plex-ec2'):
                 device.delete()
-                print("removed old Plex-Ec2 instance:",
+                print("server --> removed old plex-ec2 server instance:",
                       device.name, device.product, device.platform)
-            except:
-                print("ERROR removing old Plex-Ec2 instance:",
-                      device.name, device.product, device.platform)
-        if (device.name != outputs['PlexIp']) and (device.product == 'PlexAPI'):
-            try:
+            if (device.name != device_name) and (device.product == 'PlexAPI'):
                 device.delete()
-                print("removed old Plex-Ec2 instance:",
-                      device.name, device.product, device.platform)
-            except:
-                print("ERROR removing old Plex-Ec2 instance:",
+                print("removed old plex-ec2 api instance:",
                       device.name, device.product, device.platform)
 
     event['cleaned'] = True

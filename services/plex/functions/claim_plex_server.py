@@ -7,6 +7,7 @@ client = boto3.client('ssm')
 def handler(event, context):
     """invoke step function handler"""
     outputs = get_outputs()
+    print('outputs', outputs)
     response = client.send_command(
         DocumentName='AWS-RunShellScript',
         InstanceIds=[
@@ -15,10 +16,9 @@ def handler(event, context):
         Comment='set plex claim token and start plex media server',
         Parameters={
             'commands': [
-                'cd /home/ec2-user'
-                'docker stop $(docker ps -a -q)',
-                'docker wait $(docker ps -a -q)',
-                'docker rm $(docker ps -a -q)',
+                'cd /home/ec2-user;'
+                'docker stop $(docker ps -a -q);',
+                'docker rm $(docker ps -a -q);',
                 """docker run -d \\
                     --name plex \\
                     --restart unless-stopped \\
@@ -37,7 +37,7 @@ def handler(event, context):
                     -h plex-ec2 \\
                     -v /home/ec2-user/plex-config/config:/config \\
                     -v /home/ec2-user/plex-config/transcode:/transcode \\
-                    -v /home/ec2-user/movies:/movies plexinc/pms-docker 
+                    -v /home/ec2-user/movies:/movies plexinc/pms-docker;
                 """,
             ],
         },

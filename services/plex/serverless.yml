@@ -46,7 +46,8 @@ provider:
         - states:StartExecution
         - states:ListExecutions
       Resource:
-        - "${self:resources.Outputs.PlexServerSetupStepArn.Value}"
+        - "${self:resources.Outputs.PlexServerUpStepArn.Value}"
+        - "${self:resources.Outputs.PlexServerDownStepArn.Value}"
     - Effect: Allow
       Action:
         - cloudformation:DescribeStacks
@@ -59,7 +60,8 @@ provider:
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiRootResourceId
   environment:
     stage: ${self:provider.stage}
-    plexServerSetupStepArn: ${self:resources.Outputs.PlexServerSetupStepArn.Value}
+    plexServerUpStepArn: ${self:resources.Outputs.PlexServerUpStepArn.Value}
+    plexServerDownStepArn: ${self:resources.Outputs.PlexServerDownStepArn.Value}
     availabilityZone: ${self:custom.availabilityZone}
     apiEndpoint:
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiEndpoint
@@ -83,148 +85,60 @@ plugins:
   - serverless-python-requirements
 package:
   exclude:
-    - node_modules/**
-    - venv/**
+    - 'node_modules/**'
+    - 'venv/**'
 functions:
-  check_create_stack_status:
-    handler: functions/check_create_stack_status.handler
-    runtime: python3.7
-    timeout: 60
+  start_plex_ec2:
+    handler: functions/start_plex_ec2.handler
+  stop_plex_ec2:
+    handler: functions/stop_plex_ec2.handler
+  attach_plex_ec2_ip:
+    handler: functions/attach_plex_ec2_ip.handler
+  release_plex_ec2_ip:
+    handler: functions/release_plex_ec2_ip.handler
+  check_instance_state:
+    handler: functions/check_instance_state.handler
+  check_instance_status:
+    handler: functions/check_instance_status.handler
+  check_stack_status:
+    handler: functions/check_stack_status.handler
   create_stack:
     handler: functions/create_stack.handler
-    runtime: python3.7
-    timeout: 60
   check_run_command_status:
     handler: functions/check_run_command_status.handler
-    runtime: python3.7
-    timeout: 60
   claim_plex_server:
     handler: functions/claim_plex_server.handler
-    runtime: python3.7
-    timeout: 60
   myplex_get_account_token:
     handler: functions/myplex_get_account_token.handler
-    runtime: python3.7
-    timeout: 60
   myplex_account_cleanup:
     handler: functions/myplex_account_cleanup.handler
-    runtime: python3.7
-    timeout: 60
   myplex_server_init:
     handler: functions/myplex_server_init.handler
-    runtime: python3.7
-    timeout: 60
   myplex_add_movies_section:
     handler: functions/myplex_add_movies_section.handler
-    runtime: python3.7
-    timeout: 60
-  invoke_plex_server_setup:
-    handler: functions/invoke_plex_server_setup.handler
-    runtime: python3.7
-    timeout: 30
+  invoke_plex_server_up:
+    handler: functions/invoke_plex_server_up.handler
     events:
       - http:
-          path: invoke-plex-server-setup
+          path: invoke-plex-server-up
+          method: get
+  invoke_plex_server_down:
+    handler: functions/invoke_plex_server_down.handler
+    events:
+      - http:
+          path: invoke-plex-server-down
           method: get
 stepFunctions:
   stateMachines:
-    plexServerSetupStep: 
-      name: PlexServerSetupStep-${self:provider.stage}
-      definition:
-        Comment: "State Engine for GTO to Customer First"
-        StartAt: CheckCreateStackStatusState
-        States:
-          CheckCreateStackStatusState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-check_create_stack_status"
-            Retry: ${self:custom.retryStep}
-            Next: StackExistsChoiceState
-          StackExistsChoiceState:
-            Type: Choice
-            Choices:
-              - Variable: "$.createStackStatus"
-                StringEquals: "NO_STACK"
-                Next: CreateStackState
-              - Variable: "$.createStackStatus"
-                StringEquals: "CREATE_IN_PROGRESS"
-                Next: WaitForCreateStackState
-              - Variable: "$.createStackStatus"
-                StringEquals: "CREATE_FAILED"
-                Next: CreateStackFailState
-              - Variable: "$.createStackStatus"
-                StringEquals: "CREATE_COMPLETE"
-                Next: MyplexAccountCleanupState
-            Default: WaitForCreateStackState
-          WaitForCreateStackState:
-            Type: Wait
-            Seconds: 2
-            Next: CheckCreateStackStatusState
-          CreateStackState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-create_stack"
-            Retry: ${self:custom.retryStep}
-            Next: WaitForCreateStackState
-          MyplexAccountCleanupState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-myplex_account_cleanup"
-            Retry: ${self:custom.retryStep}
-            Next: MyPlexGetAccountTokenState
-          MyPlexGetAccountTokenState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-myplex_get_account_token"
-            Retry: ${self:custom.retryStep}
-            Next: ClaimPlexServerState
-          ClaimPlexServerState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-claim_plex_server"
-            Retry: ${self:custom.retryStep}
-            Next: CheckRunCommandStatusState
-          CheckRunCommandStatusState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-check_run_command_status"
-            Retry: ${self:custom.retryStep}
-            Next: RunCommandChoiceState
-          RunCommandChoiceState:
-            Type: Choice
-            Choices:
-              - Variable: "$.runCommandStatus"
-                StringEquals: "InProgress"
-                Next: WaitForRunCommandState
-              - Variable: "$.runCommandStatus"
-                StringEquals: "Failed"
-                Next: RunCommandFailState
-              - Variable: "$.runCommandStatus"
-                StringEquals: "Success"
-                Next: MyPlexServerInitState
-            Default: WaitForRunCommandState
-          WaitForRunCommandState:
-            Type: Wait
-            Seconds: 2
-            Next: CheckRunCommandStatusState
-          MyPlexServerInitState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-myplex_server_init"
-            Retry: ${self:custom.retryStep}
-            Next: MyPlexAddMoviesSectionState
-          MyPlexAddMoviesSectionState:
-            Type: Task
-            Resource: "${self:custom.lambdaArnBase}-myplex_add_movies_section"
-            Retry: ${self:custom.retryStep}
-            Next: FinalState
-          CreateStackFailState: {
-            Type: Fail,
-            Cause: Create Stack Failed
-          }
-          RunCommandFailState: {
-            Type: Fail,
-            Cause: Run Command Failed
-          }
-          FinalState:
-            Type: Pass
-            End: true
+    plexServerUpStep: ${file(step_functions/plex_server_up_step.yml)}
+    plexServerDownStep: ${file(step_functions/plex_server_down_step.yml)}
 resources:
   Outputs:
-    PlexServerSetupStepArn:
-      Description: The ARN of the Plex Server Setup State Machine
+    PlexServerUpStepArn:
+      Description: The ARN of the Plex Server Setup (with IP) State Machine
       Value:
-        Ref: PlexServerSetupStepDash${self:provider.stage}
+        Ref: PlexServerUpStepDash${self:provider.stage}
+    PlexServerDownStepArn:
+      Description: The ARN of the Plex Server Setup (without IP) State Machine
+      Value:
+        Ref: PlexServerDownStepDash${self:provider.stage}

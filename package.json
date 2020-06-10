@@ -11,7 +11,8 @@
     "plex-delete": "(cd services/ec2; serverless invoke -f deletePlexEc2Instance)",
     "plex-start": "(cd services/ec2; serverless invoke -f startEc2Instance)",
     "plex-stop": "(cd services/ec2; serverless invoke -f stopEc2Instance)",
-    "plex-reset": "(cd services/plex; serverless invoke -f invoke_plex_server_setup)",
+    "plex-up": "(cd services/plex; serverless invoke -f invoke_plex_server_up)",
+    "plex-down": "(cd services/plex; serverless invoke -f invoke_plex_server_down)",
     "deploy": "sh ./deploy.sh",
     "undeploy": "sh ./undeploy.sh",
     "recreate": "sh ./recreate.sh"

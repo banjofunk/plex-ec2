@@ -11,8 +11,8 @@ def handler(event, context):
 
     try:
         data = client.describe_stacks(StackName=stack_name)
-        event['createStackStatus'] = data['Stacks'][0]['StackStatus']
+        event['stackStatus'] = data['Stacks'][0]['StackStatus']
     except ClientError:
-        event['createStackStatus'] = "NO_STACK"
+        event['stackStatus'] = "NO_STACK"
 
     return event

@@ -42,7 +42,7 @@ deploy 'services/ec2'
 deploy 'services/plex'
 
 echo "${prefix} ${orange}setting up plex server...${reset}\n"
-(cd services/plex; serverless invoke -f invoke_plex_server_setup)
+(cd services/plex; serverless invoke -f invoke_plex_server_up)
 
 echo "
 

@@ -1,0 +1,51 @@
+name: PlexServerDownStep-${self:provider.stage}
+definition:
+  Comment: "PlexServerDownStep - without IP"
+  StartAt: StopPlexEc2State
+  States:
+    StopPlexEc2State:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-stop_plex_ec2"
+      Retry: ${self:custom.retryStep}
+      Next: ReleasePlexEc2Ip
+    ReleasePlexEc2Ip:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-release_plex_ec2_ip"
+      Retry: ${self:custom.retryStep}
+      Next: CheckUpdateStackStatusState
+    CheckUpdateStackStatusState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-check_stack_status"
+      Retry: ${self:custom.retryStep}
+      Next: StackStatusChoiceState
+    StackStatusChoiceState:
+      Type: Choice
+      Choices:
+        - Variable: "$.stackStatus"
+          StringEquals: "NO_STACK"
+          Next: UpdateStackFailState
+        - Variable: "$.stackStatus"
+          StringEquals: "UPDATE_IN_PROGRESS"
+          Next: WaitForUpdateStackState
+        - Variable: "$.stackStatus"
+          StringEquals: "UPDATE_FAILED"
+          Next: UpdateStackFailState
+        - Variable: "$.stackStatus"
+          StringEquals: "UPDATE_COMPLETE"
+          Next: MyplexAccountCleanupState
+      Default: WaitForUpdateStackState
+    WaitForUpdateStackState:
+      Type: Wait
+      Seconds: 2
+      Next: CheckUpdateStackStatusState
+    MyplexAccountCleanupState:
+      Type: Task
+      Resource: "${self:custom.lambdaArnBase}-myplex_account_cleanup"
+      Retry: ${self:custom.retryStep}
+      Next: FinalState
+    UpdateStackFailState: 
+      Type: Fail
+      Cause: Update Stack Failed
+    FinalState:
+      Type: Pass
+      End: true
