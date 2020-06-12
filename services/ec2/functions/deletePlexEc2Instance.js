@@ -5,7 +5,7 @@ const cloudformation = new AWS.CloudFormation();
 
 module.exports.handler = async (event, context) => {
   const params = { StackName: `plex-vpc-ec2-${process.env.stage}` };
-  const cloudformationResp = await cloudformation
+  const cloudformationResponse = await cloudformation
     .deleteStack(params)
     .promise()
     .then(response => ({
@@ -18,7 +18,13 @@ module.exports.handler = async (event, context) => {
       return err;
     });
 
-  console.log('cloudformationResp:', cloudformationResp);
+  // await cloudformation
+  //   .waitFor('stackDeleteComplete', params)
+  //   .promise()
+  //   .then(console.log)
+  //   .catch(console.error);
 
-  return cloudformationResp;
+  console.log('cloudformationResponse:', cloudformationResponse);
+
+  return cloudformationResponse;
 };

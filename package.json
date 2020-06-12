@@ -6,13 +6,10 @@
   "scripts": {
     "set-password": "f(){ aws ssm put-parameter --name /plex-ec2/password --type SecureString --overwrite --value $1 | cat; };f",
     "set-username": "f(){ aws ssm put-parameter --name /plex-ec2/username --type String --overwrite --value $1 | cat; };f",
-    "upload-templates": "node ./templates/uploadTemplates.js",
-    "plex-create": "(cd services/ec2; serverless invoke -f createPlexEc2Instance)",
-    "plex-delete": "(cd services/ec2; serverless invoke -f deletePlexEc2Instance)",
-    "plex-start": "(cd services/ec2; serverless invoke -f startEc2Instance)",
-    "plex-stop": "(cd services/ec2; serverless invoke -f stopEc2Instance)",
-    "plex-up": "(cd services/plex; serverless invoke -f invoke_plex_server_up)",
-    "plex-down": "(cd services/plex; serverless invoke -f invoke_plex_server_down)",
+    "plex-start": "pushd services/ec2; serverless invoke -f startEc2Instance; popd;",
+    "plex-stop": "pushd services/ec2; serverless invoke -f stopEc2Instance; popd;",
+    "plex-up": "pushd services/plex; serverless invoke -f invoke_plex_server_up; popd;",
+    "plex-down": "pushd services/plex; serverless invoke -f invoke_plex_server_down; popd;",
     "deploy": "sh ./deploy.sh",
     "undeploy": "sh ./undeploy.sh",
     "recreate": "sh ./recreate.sh"

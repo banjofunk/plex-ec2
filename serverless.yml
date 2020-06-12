@@ -5,12 +5,12 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-west-2'}
 custom:
-  scripts:
-    hooks:
-      'before:deploy:deploy': npm run upload-templates
+  availabilityZone:
+    Fn::Select: 
+      - 0
+      - Fn::GetAZs: ${self:provider.region}
 plugins:
   - serverless-pseudo-parameters
-  - serverless-plugin-scripts
 package:
   exclude:
     - 'node_modules/**'
@@ -40,6 +40,384 @@ resources:
         Type: String
         Value: 'false'
         Description: plex-ec2 resource creation status
+    PlexIpParameter:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /plex-ec2/plex-ip
+        Type: String
+        Value: 
+          Ref: PlexIPAddress
+        Description: plex-ec2 plex ip address
+    PlexEc2Role:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: PlexEc2Role
+        AssumeRolePolicyDocument:
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - ec2.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Path: /
+    PlexEc2RolePolicies:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: PlexEc2Policy
+        PolicyDocument:
+          Statement:
+            - Effect: Allow
+              Action: 
+                - ssmmessages:*
+                - ec2messages:*
+                - ssm:UpdateInstanceInformation
+                - ssm:ListCommands
+                - ssm:ListCommandInvocations
+                - ssm:ListInstanceAssociations
+                - ssm:GetDocument
+              Resource: '*'
+            - Effect: Allow
+              Action: 
+                - ssm:SendCommand
+              Resource: 
+                - arn:aws:ssm:us-west-2::document/AWS-RunShellScript
+            - Effect: Allow
+              Action: 
+                - s3:GetBucketLocation
+                - s3:ListAllMyBuckets
+              Resource: arn:aws:s3:::*
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: 
+                - arn:aws:s3:::plex-movie
+                - arn:aws:s3:::plex-tv
+            - Effect: Allow
+              Action: 
+                - s3:PutObject
+                - s3:GetObject
+                - s3:DeleteObject
+              Resource: 
+                - arn:aws:s3:::plex-movie
+                - arn:aws:s3:::plex-movie/*
+                - arn:aws:s3:::plex-tv
+                - arn:aws:s3:::plex-tv/*
+        Roles:
+          - Ref: PlexEc2Role
+    VPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.0.0.0/16
+    Subnet:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId: 
+          Ref: VPC
+        CidrBlock: 10.0.0.0/24
+        AvailabilityZone: ${self:custom.availabilityZone}
+    PlexInternetGateway:
+      Type: AWS::EC2::InternetGateway
+    PlexAttachGateway:
+      Type: AWS::EC2::VPCGatewayAttachment
+      Properties:
+        VpcId: 
+          Ref: VPC
+        InternetGatewayId: 
+          Ref: PlexInternetGateway
+    RouteTable:
+      Type: AWS::EC2::RouteTable
+      DependsOn: PlexAttachGateway
+      Properties:
+        VpcId: 
+          Ref: VPC
+    PlexRoute:
+      Type: AWS::EC2::Route
+      Properties:
+        RouteTableId: 
+          Ref: RouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: 
+          Ref: PlexInternetGateway
+    PlexIPAddress:
+      Type: AWS::EC2::EIP
+      Properties:
+        Domain: vpc
+        InstanceId: 
+          Ref: PlexEc2
+    SubnetRouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: 
+          Ref: Subnet
+        RouteTableId: 
+          Ref: RouteTable
+    NetworkAcl:
+      Type: AWS::EC2::NetworkAcl
+      Properties:
+        VpcId: 
+          Ref: VPC
+    SubnetNetworkAclAssociation:
+      Type: AWS::EC2::SubnetNetworkAclAssociation
+      Properties:
+        SubnetId: 
+          Ref: Subnet
+        NetworkAclId: 
+          Ref: NetworkAcl
+    InboundHTTPNetworkAclEntry:
+      Type: AWS::EC2::NetworkAclEntry
+      Properties:
+        NetworkAclId: 
+          Ref: NetworkAcl
+        RuleNumber: 100
+        Protocol: 6
+        RuleAction: allow
+        Egress: false
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 80
+          To: 80
+    InboundSSHNetworkAclEntry:
+      Type: AWS::EC2::NetworkAclEntry
+      Properties:
+        NetworkAclId: 
+          Ref: NetworkAcl
+        RuleNumber: 101
+        Protocol: 6
+        RuleAction: allow
+        Egress: false
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 22
+          To: 22
+    InboundResponsePortsNetworkAclEntry:
+      Type: AWS::EC2::NetworkAclEntry
+      Properties:
+        NetworkAclId: 
+          Ref: NetworkAcl
+        RuleNumber: 102
+        Protocol: 6
+        RuleAction: allow
+        Egress: false
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 1024
+          To: 65535
+    OutBoundHTTPNetworkAclEntry:
+      Type: AWS::EC2::NetworkAclEntry
+      Properties:
+        NetworkAclId: 
+          Ref: NetworkAcl
+        RuleNumber: 100
+        Protocol: 6
+        RuleAction: allow
+        Egress: true
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 80
+          To: 80
+    OutBoundHTTPSNetworkAclEntry:
+      Type: AWS::EC2::NetworkAclEntry
+      Properties:
+        NetworkAclId: 
+          Ref: NetworkAcl
+        RuleNumber: 101
+        Protocol: 6
+        RuleAction: allow
+        Egress: true
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 443
+          To: 443
+    OutBoundResponsePortsNetworkAclEntry:
+      Type: AWS::EC2::NetworkAclEntry
+      Properties:
+        NetworkAclId: 
+          Ref: NetworkAcl
+        RuleNumber: 102
+        Protocol: 6
+        RuleAction: allow
+        Egress: true
+        CidrBlock: 0.0.0.0/0
+        PortRange:
+          From: 1024
+          To: 65535
+    SecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: PlexSecurityGroup
+        GroupDescription: Allow ssh and plex ports
+        VpcId: 
+          Ref: VPC
+        SecurityGroupEgress:
+          - CidrIp: 0.0.0.0/0
+            IpProtocol: -1
+        SecurityGroupIngress:
+          - CidrIp: 0.0.0.0/0
+            IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+          - CidrIp: 0.0.0.0/0
+            IpProtocol: tcp
+            FromPort: 32400
+            ToPort: 32400
+    PlexEc2InstanceProfile:
+      Type: AWS::IAM::InstanceProfile
+      Properties:
+        Path: /
+        Roles:
+          - Ref: PlexEc2Role
+    PlexEc2:
+      Type: AWS::EC2::Instance
+      DependsOn:
+        - SecurityGroup
+      Properties:
+        ImageId: ami-023578bcb54b36edf
+        InstanceType: t2.medium
+        KeyName: plex-ec2
+        AvailabilityZone: ${self:custom.availabilityZone}
+        IamInstanceProfile: 
+          Ref: PlexEc2InstanceProfile
+        NetworkInterfaces:
+          - AssociatePublicIpAddress: true
+            DeviceIndex: 0
+            SubnetId: 
+              Ref: Subnet
+            GroupSet:
+              - Ref: SecurityGroup
+        BlockDeviceMappings:
+          - DeviceName: /dev/sdb
+            Ebs:
+              VolumeType: gp2
+              VolumeSize: 10
+              DeleteOnTermination: true
+        UserData: 
+          Fn::Base64:
+            Fn::Sub: |
+              #!/bin/bash -v
+              yum update -y
+              yum install -y aws-cfn-bootstrap
+
+              /opt/aws/bin/cfn-init --stack #{AWS::StackName} --resource PlexEc2 --region #{AWS::Region} --configsets install_all ||
+              error_exit 'failed to execute cfn-init'
+              
+              /opt/aws/bin/cfn-signal -e $? --stack #{AWS::StackName} --resource PlexEc2 --region #{AWS::Region} ||
+              error_exit 'failed to execute cfn-init'
+      Metadata:
+        Comment: Plex Dependencies
+        AWS::CloudFormation::Init:
+          configSets:
+            install_all:
+              - install_cfn_hup
+              - install_ssm_agent
+              - fuse_setup
+              - install_app_deps
+            install_update:
+              - install_app_deps
+          install_cfn_hup:
+            files:
+              /etc/cfn/cfn-hup.conf:
+                content:
+                  Fn::Sub: |
+                    [main]
+                    stack=#{AWS::StackId}
+                    region=#{AWS::Region}
+                mode: '000400'
+                owner: root
+                group: root
+              /etc/cfn/hooks.d/cfn-auto-reloader.conf:
+                content:
+                  Fn::Sub: |
+                    [cfn-auto-reloader-hook]
+                    triggers=post.update
+                    path=Resources.PlexEc2.Metadata.AWS::CloudFormation::Init
+                    action=/opt/aws/bin/cfn-init -v
+                        --stack #{AWS::StackName}
+                        --resource PlexEc2
+                        --configsets install_update
+                        --region #{AWS::Region}
+                    runas=root
+                mode: '000400'
+                owner: root
+                group: root
+            services:
+              sysvinit:
+                cfn-hup:
+                  enabled: 'true'
+                  ensureRunning: 'true'
+                  files:
+                    - /etc/cfn/cfn-hup.conf
+                    - /etc/cfn/hooks.d/cfn-auto-reloader.conf
+          install_ssm_agent:
+            commands: 
+              01_yum_ssm_agent: 
+                command: |
+                  yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+          fuse_setup:
+            packages:
+              yum: 
+                automake: [] 
+                fuse: [] 
+                fuse-devel: [] 
+                gcc-c++: [] 
+                git: [] 
+                libcurl-devel: [] 
+                libxml2-devel: [] 
+                make: [] 
+                openssl-devel: []
+                mailcap: []
+            files:
+              /etc/fuse.conf: 
+                content: | 
+                  user_allow_other
+                mode: "000644"
+                owner: "root"
+                group: "root"
+            commands: 
+              02_s3fs_clone: 
+                command: git clone https://github.com/s3fs-fuse/s3fs-fuse.git
+                cwd: /home/ec2-user
+              03_s3fs_make: 
+                command: |
+                  ./autogen.sh 
+                  ./configure --prefix=/usr --with-openssl
+                  make
+                  make install
+                cwd: /home/ec2-user/s3fs-fuse
+              04_mount: 
+                command: |
+                  echo s3fs#plex-movie /home/ec2-user/movies fuse _netdev,allow_other,use_cache=/tmp,umask=0007,uid=$(id -u ec2-user),gid=$(id -u ec2-user),iam_role=PlexEc2Role,auto 0 0 >> /etc/fstab
+                  echo /dev/sdb /home/ec2-user/plex-config ext4 defaults,nofail 0 0 >> /etc/fstab
+                  mkdir -p /home/ec2-user/movies
+                  mkdir -p /home/ec2-user/plex-config
+                  mkfs.ext4 /dev/sdb
+                  mount -a
+              05_plex_mkdir: 
+                command: |
+                  mkdir -p /home/ec2-user/plex-config/config
+                  mkdir -p /home/ec2-user/plex-config/transcode
+          install_app_deps:
+            packages:
+              yum: 
+                git: [] 
+                libcurl-devel: [] 
+                wget: []
+                docker: []
+                jq: []
+            commands:
+              01_pull_docker_image: 
+                command: docker image pull plexinc/pms-docker
+                cwd: /home/ec2-user
+            services: 
+              sysvinit: 
+                docker: 
+                  enabled: true
+          confirm_create_update:
+            commands:
+              01_ls:
+                command: |
+                  ls -la
+                  echo "plex ec2 setup complete"
+                cwd: /home/ec2-user
   Outputs:
     RestApiRootResourceId:
       Description: Plex Ec2 - api gateway resource id
@@ -60,3 +438,9 @@ resources:
       Value: "https://#{RestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}"
       Export:
         Name: "#{AWS::StackName}-RestApiEndpoint"
+    PlexEc2InstanceId:
+      Description: Plex Ec2 - ec2 instance id
+      Value:
+        Ref: PlexEc2
+      Export:
+        Name: "#{AWS::StackName}-PlexEc2InstanceId"

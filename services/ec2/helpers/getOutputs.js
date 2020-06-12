@@ -4,7 +4,7 @@ const AWS = require('aws-sdk');
 const cloudformation = new AWS.CloudFormation();
 
 module.exports = async stackNameInp => {
-  const stackName = stackNameInp || `plex-vpc-ec2-${process.env.stage}`;
+  const stackName = stackNameInp || `plex-ec2-resources-${process.env.stage}`;
 
   return cloudformation
     .describeStacks({

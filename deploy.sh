@@ -12,37 +12,30 @@ prefix="${orange}Plex Ec2:${reset}"
 STAGE="dev"
 REGION="us-west-2"
 
-getServiceName() {
-    IFS='/'
-    read -ra ADDR <<< "$1"
-    SERVICENAME="${ADDR[@]: -1}"
-    IFS=' '
-    echo $SERVICENAME
-}
-
 deploy() {
-    SERVICE=$1
-    SERVICENAME="$(getServiceName $SERVICE)"
-    echo "${prefix} Deploying ${orange}$SERVICENAME${reset} service\n"
-    cwd=$(pwd)
-    cd $SERVICE
-    npm install
-    PYTHON_REQUIREMENTS=./requirements.txt
-    if test -f "$PYTHON_REQUIREMENTS"; then
-        pip install -r ./requirements.txt
-    fi
-    serverless deploy --stage $STAGE --region $REGION
-    cd $cwd
+  service_path=$1
+  service_name=" $(echo $service_path | sed s/\.\\/services\\///)"
+  echo "${prefix} Deploying ${orange}$service_name${reset} service\n"
+  pushd $service_path
+  npm install
+  PYTHON_REQUIREMENTS=./requirements.txt
+  if test -f "$PYTHON_REQUIREMENTS"; then
+      pip install -r ./requirements.txt
+  fi
+  serverless deploy --stage $STAGE --region $REGION
+  popd
+  echo "${prefix} Service ${green}$service_name${reset} deployed.\n"
 }
 
-## Install deps / Deploy resrouces
+## Install deps / Deploy resouces
 npm install
 serverless deploy --stage $STAGE --region $REGION
-deploy 'services/ec2'
-deploy 'services/plex'
+
+echo "${prefix} Deploying ${orange}all${reset} services\n"
+for service in ./services/*; do deploy $service; done
 
 echo "${prefix} ${orange}setting up plex server...${reset}\n"
-(cd services/plex; serverless invoke -f invoke_plex_server_up)
+npm run plex-up
 
 echo "
 

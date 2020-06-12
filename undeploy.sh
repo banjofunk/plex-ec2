@@ -12,43 +12,24 @@ prefix="${orange}Plex Ec2:${reset}"
 STAGE="dev"
 REGION="us-west-2"
 
-getServiceName() {
-    IFS='/'
-    read -ra ADDR <<< "$1"
-    SERVICENAME="${ADDR[@]: -1}"
-    IFS=' '
-    echo $SERVICENAME
-}
-
 remove() {
-    SERVICE=$1
-    SERVICENAME="$(getServiceName $SERVICE)"
-
-    echo "${prefix} Removing ${orange}$SERVICENAME${reset} service\n"
-    cwd=$(pwd)
-    cd $SERVICE
-    serverless remove
-    cd $cwd
-    echo "${prefix} Service ${green}$SERVICENAME${reset} removed.\n"
+  service_path=$1
+  service_name=" $(echo $service_path | sed s/\.\\/services\\///)"
+  echo "${prefix} Removing ${orange}$service_name${reset} service\n"
+  pushd $service_path
+  serverless remove
+  popd
+  echo "${prefix} Service ${green}$service_name${reset} removed.\n"
 }
-
 
 echo "${orange}removing plex-vpc-ec2 instance...${reset}\n"
-
-aws cloudformation delete-stack \
-  --stack-name "plex-vpc-ec2-$STAGE" \
-  --output text >/dev/null
-
-aws cloudformation wait stack-delete-complete \
-  --stack-name "plex-vpc-ec2-$STAGE"
-
+npm run plex-down
 echo "${prefix} Instance ${green}plex-vpc-ec2-$STAGE${reset} removed\n"
-
-remove 'services/ec2'
-remove 'services/plex'
+echo "${prefix} Removing ${orange}all${reset} services\n"
+for service in ./services/*; do remove $service; done
 
 serverless remove
-echo "${prefix} Resource ${green}plex-vpc-ec2-resrouces-$STAGE ${reset}removed\n"
+echo "${prefix} Resource ${green}plex-vpc-ec2-resouces-$STAGE ${reset}removed\n"
 
 wait
 

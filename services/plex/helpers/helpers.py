@@ -15,7 +15,7 @@ cloudformation = boto3.client('cloudformation')
 
 def get_outputs():
     """Get MyPlex username and password AWS from parameter store"""
-    stack_name = f"plex-vpc-ec2-{os.environ['stage']}"
+    stack_name = f"plex-ec2-resources-{os.environ['stage']}"
     print('stack_name', stack_name)
     cloudformation_response = cloudformation.describe_stacks(
         StackName=stack_name
@@ -69,8 +69,8 @@ def get_myplex_account():
 
 def get_plex_server(token):
     """Associate plex-ec2 server with MyPlex account"""
-    outputs = get_outputs()
-    plex_ip = outputs['PlexIp']
+    params = get_params()
+    plex_ip = params['plex-ip']
     baseurl = f"http://{plex_ip}:32400"
     print('baseurl', baseurl)
     plex_server = PlexServer(baseurl, token)

@@ -23,19 +23,6 @@ provider:
         - cloudformation:DeleteStack
       Resource: 
         - arn:aws:cloudformation:#{AWS::Region}:#{AWS::AccountId}:stack/*
-    - Effect: Allow
-      Action:
-        - "*"
-        - s3:GetObject
-        - iam:GetRole
-        - iam:CreateRole
-        - logs:CreateLogStream
-        - ec2:CreateInternetGateway
-        - ec2:DeleteInternetGateway
-        - ec2:CreateVpc
-        - ec2:DeleteVpc
-      Resource: 
-        - '*'
   apiGateway:
     restApiId: 
       Fn::ImportValue: plex-ec2-resources-${self:provider.stage}-RestApiId
@@ -59,25 +46,6 @@ package:
   exclude:
     - node_modules/**
 functions:
-  createPlexEc2Instance:
-    handler: functions/createPlexEc2Instance.handler
   deletePlexEc2Instance:
     handler: functions/deletePlexEc2Instance.handler
-  stopEc2Instance:
-    handler: functions/stopEc2Instance.handler
-  startEc2Instance:
-    handler: functions/startEc2Instance.handler
-  searchTorrent:
-    handler: functions/searchTorrent.handler
-resources:
-  Conditions:
-    CreateResources: 
-      Fn::Equals:
-        - ${ssm:/plex-ec2/create-resources, 'true'}
-        - 'true'
-  Resources:
-    PlexRestApi:
-      Type: AWS::ApiGateway::RestApi
-      Properties:
-        Name: plexEc2Api
-        Description: Plex Ec2 API Gateway
+    timeout: 900

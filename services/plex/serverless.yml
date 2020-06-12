@@ -92,18 +92,14 @@ functions:
     handler: functions/start_plex_ec2.handler
   stop_plex_ec2:
     handler: functions/stop_plex_ec2.handler
-  attach_plex_ec2_ip:
-    handler: functions/attach_plex_ec2_ip.handler
-  release_plex_ec2_ip:
-    handler: functions/release_plex_ec2_ip.handler
+  attach_plex_ip:
+    handler: functions/attach_plex_ip.handler
+  release_plex_ip:
+    handler: functions/release_plex_ip.handler
   check_instance_state:
     handler: functions/check_instance_state.handler
   check_instance_status:
     handler: functions/check_instance_status.handler
-  check_stack_status:
-    handler: functions/check_stack_status.handler
-  create_stack:
-    handler: functions/create_stack.handler
   check_run_command_status:
     handler: functions/check_run_command_status.handler
   claim_plex_server:
@@ -112,8 +108,8 @@ functions:
     handler: functions/myplex_get_account_token.handler
   myplex_account_cleanup:
     handler: functions/myplex_account_cleanup.handler
-  myplex_server_init:
-    handler: functions/myplex_server_init.handler
+  myplex_server_settings:
+    handler: functions/myplex_server_settings.handler
   myplex_add_movies_section:
     handler: functions/myplex_add_movies_section.handler
   invoke_plex_server_up:

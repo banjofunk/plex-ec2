@@ -1,13 +1,12 @@
 """Serverless Lambda - plexapi"""
 from helpers import get_myplex_account
-from helpers import get_outputs
+from helpers import get_params
 
 
 def handler(event, context):
     """Use PlexApi to remove old plex ec2 servers and MyPlex devices"""
-    outputs = get_outputs()
-    print('outputs', outputs)
-    device_name = outputs['PlexIp'] if 'PlexIp' in outputs else 'noplexip'
+    params = get_params()
+    device_name = params['plex-ip'] if 'plex-ip' in params else 'noplexip'
 
     try:
         account = get_myplex_account()
