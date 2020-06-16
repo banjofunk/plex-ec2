@@ -36,3 +36,8 @@ npm run plex-up
 # remove it all
 npm run undeploy
 ```
+## AWS Diagram
+![AWS Diagram](/assets/images/aws-diagram.png)
+
+## Plex Up Step Function Diagram
+![AWS Diagram](/assets/images/plex-up-step.png)
